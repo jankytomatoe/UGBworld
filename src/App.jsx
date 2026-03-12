@@ -5,18 +5,36 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Gamepad2, X, Play, Info, Search, ChevronLeft, Maximize, Shield } from 'lucide-react';
-import gamesData from './games.json';
+import { Gamepad2, X, Play, Info, Search, ChevronLeft, Maximize, Shield, RefreshCw, Heart, LogIn, LogOut } from 'lucide-react';
+import rawGamesData from './games.json';
+import { useFirebase } from './FirebaseProvider';
 import './index.css';
 
+const gamesData = rawGamesData.filter(g => {
+  const cats = Array.isArray(g.category) ? g.category : [g.category];
+  // Keep all games EXCEPT Clicker games that are NOT cookie-clicker
+  if (cats.includes('Clicker') && g.id !== 'cookie-clicker') {
+    return false;
+  }
+  return true;
+}).map(g => {
+  let cats = Array.isArray(g.category) ? g.category : [g.category];
+  // Remove RPG, Clicker, and Action from categories so they don't show up as sections
+  cats = cats.filter(c => c !== 'RPG' && c !== 'Clicker' && c !== 'Action');
+  return { ...g, category: cats };
+});
+
 export default function App() {
+  const { user, userData, login, logout, toggleFavorite } = useFirebase();
   const [selectedGame, setSelectedGame] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [playerSearchQuery, setPlayerSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const [filteredGames, setFilteredGames] = useState(gamesData);
   const [isCloaked, setIsCloaked] = useState(false);
   const [showCloakModal, setShowCloakModal] = useState(false);
-  const [cloakTitle, setCloakTitle] = useState('Google Drive');
-  const [cloakIcon, setCloakIcon] = useState('https://ssl.gstatic.com/docs/doclist/images/drive_2022q3_32dp.png');
+  const [cloakTitle, setCloakTitle] = useState('');
+  const [cloakIcon, setCloakIcon] = useState('');
 
   useEffect(() => {
     if (isCloaked) {
@@ -36,12 +54,25 @@ export default function App() {
   }, [isCloaked, cloakTitle, cloakIcon]);
 
   useEffect(() => {
-    const filtered = gamesData.filter(game =>
-      game.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      game.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filtered = gamesData.filter(game => {
+      const matchesSearch = game.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            game.description.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      let matchesCategory = false;
+      if (selectedCategory === 'All') {
+        matchesCategory = true;
+      } else if (selectedCategory === 'Favorites') {
+        matchesCategory = userData?.favorites?.includes(game.id) || false;
+      } else {
+        matchesCategory = Array.isArray(game.category) ? game.category.includes(selectedCategory) : game.category === selectedCategory;
+      }
+      
+      return matchesSearch && matchesCategory;
+    });
     setFilteredGames(filtered);
-  }, [searchQuery]);
+  }, [searchQuery, selectedCategory, userData]);
+
+  const categories = ['All', 'Favorites', ...new Set(gamesData.flatMap(g => Array.isArray(g.category) ? g.category : [g.category]).filter(Boolean))];
 
   const handlePlayGame = (game) => {
     setSelectedGame(game);
@@ -97,6 +128,26 @@ export default function App() {
           {!selectedGame && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <button 
+                onClick={() => window.location.reload()}
+                style={{ 
+                  background: 'rgba(255,255,255,0.05)', 
+                  border: '1px solid rgba(255,255,255,0.1)', 
+                  color: 'rgba(255,255,255,0.6)', 
+                  padding: '0.5rem',
+                  borderRadius: '0.75rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  fontSize: '0.875rem',
+                  fontWeight: '500'
+                }}
+                title="Refresh Site"
+              >
+                <RefreshCw size={18} />
+                Refresh
+              </button>
+              <button 
                 onClick={() => setShowCloakModal(true)}
                 style={{ 
                   background: isCloaked ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.05)', 
@@ -119,6 +170,49 @@ export default function App() {
               <button style={{ backgroundColor: 'white', color: 'black', padding: '0.5rem 1rem', borderRadius: '9999px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}>
                 Request Game
               </button>
+              {user ? (
+                <button 
+                  onClick={logout}
+                  style={{ 
+                    background: 'rgba(239, 68, 68, 0.2)', 
+                    border: '1px solid rgba(239, 68, 68, 0.4)', 
+                    color: '#ef4444', 
+                    padding: '0.5rem',
+                    borderRadius: '0.75rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.875rem',
+                    fontWeight: '500'
+                  }}
+                  title="Logout"
+                >
+                  <LogOut size={18} />
+                  Logout
+                </button>
+              ) : (
+                <button 
+                  onClick={login}
+                  style={{ 
+                    background: 'rgba(16, 185, 129, 0.2)', 
+                    border: '1px solid rgba(16, 185, 129, 0.4)', 
+                    color: '#10b981', 
+                    padding: '0.5rem',
+                    borderRadius: '0.75rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.875rem',
+                    fontWeight: '500'
+                  }}
+                  title="Login to save favorites"
+                >
+                  <LogIn size={18} />
+                  Login
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -134,13 +228,47 @@ export default function App() {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
             >
+              {/* Categories */}
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', overflowX: 'auto', paddingBottom: '0.5rem' }} className="hide-scrollbar">
+                {categories.map(category => (
+                  <button
+                    key={category}
+                    onClick={() => setSelectedCategory(category)}
+                    style={{
+                      padding: '0.5rem 1.25rem',
+                      borderRadius: '9999px',
+                      fontSize: '0.875rem',
+                      fontWeight: '600',
+                      whiteSpace: 'nowrap',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      background: selectedCategory === category ? 'white' : 'rgba(255,255,255,0.05)',
+                      color: selectedCategory === category ? 'black' : 'rgba(255,255,255,0.7)',
+                      border: `1px solid ${selectedCategory === category ? 'white' : 'rgba(255,255,255,0.1)'}`
+                    }}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+
+              {/* Section Title */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.025em' }}>
+                  {searchQuery ? `Search results for "${searchQuery}"` : selectedCategory === 'All' ? 'All Games' : selectedCategory === 'Tools' ? 'Tools' : selectedCategory === 'Soundboard' ? 'Soundboard' : `${selectedCategory} Games`}
+                </h2>
+                <span style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.4)', fontWeight: '600' }}>
+                  {filteredGames.length} Games
+                </span>
+              </div>
+
               {/* Game Grid */}
               <div className="game-grid">
                 {filteredGames.map((game) => (
                   <motion.div
                     key={game.id}
-                    whileHover={{ y: -8 }}
-                    className="game-card"
+                    whileHover={game.id === 'regular-soundboard' ? undefined : { y: -8 }}
+                    className={`game-card ${game.id === 'regular-soundboard' ? 'sound-button-card' : ''}`}
                     onClick={() => handlePlayGame(game)}
                   >
                     <div className="card-thumbnail-wrapper">
@@ -189,7 +317,39 @@ export default function App() {
                   <ChevronLeft size={18} />
                   Back
                 </button>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <div style={{ position: 'relative' }}>
+                    <div className="search-wrapper" style={{ width: '200px', margin: 0 }}>
+                      <Search className="search-icon" size={16} />
+                      <input
+                        type="text"
+                        placeholder="Search games..."
+                        value={playerSearchQuery}
+                        onChange={(e) => setPlayerSearchQuery(e.target.value)}
+                        className="search-input"
+                        style={{ padding: '0.5rem 1rem 0.5rem 2.5rem', fontSize: '0.875rem' }}
+                      />
+                    </div>
+                    {playerSearchQuery && (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#1f2937', borderRadius: '0.5rem', marginTop: '0.5rem', maxHeight: '300px', overflowY: 'auto', zIndex: 50, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        {gamesData.filter(g => g.title.toLowerCase().includes(playerSearchQuery.toLowerCase()) || g.description.toLowerCase().includes(playerSearchQuery.toLowerCase())).slice(0, 5).map(game => (
+                          <div 
+                            key={game.id} 
+                            onClick={() => { setSelectedGame(game); setPlayerSearchQuery(''); }} 
+                            style={{ padding: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                          >
+                            <img src={game.thumbnail} alt={game.title} style={{ width: '32px', height: '32px', borderRadius: '0.25rem', objectFit: 'cover' }} />
+                            <span style={{ fontSize: '0.875rem', fontWeight: '500', color: 'white' }}>{game.title}</span>
+                          </div>
+                        ))}
+                        {gamesData.filter(g => g.title.toLowerCase().includes(playerSearchQuery.toLowerCase()) || g.description.toLowerCase().includes(playerSearchQuery.toLowerCase())).length === 0 && (
+                          <div style={{ padding: '1rem', textAlign: 'center', color: '#9ca3af', fontSize: '0.875rem' }}>No games found</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <button 
                     onClick={() => {
                       const blob = new Blob([selectedGame.html], { type: 'text/html' });
@@ -202,6 +362,40 @@ export default function App() {
                   >
                     <Play size={14} fill="currentColor" />
                     Open in New Tab
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const iframe = document.querySelector('.game-iframe');
+                      if (iframe) {
+                        iframe.src = iframe.src;
+                      }
+                    }}
+                    className="close-game-btn"
+                    title="Refresh"
+                  >
+                    <RefreshCw size={18} />
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (!user) {
+                        login();
+                      } else {
+                        toggleFavorite(selectedGame.id);
+                      }
+                    }}
+                    className="close-game-btn"
+                    style={{ 
+                      width: 'auto', 
+                      padding: '0 1rem', 
+                      fontSize: '0.875rem', 
+                      fontWeight: '500', 
+                      gap: '0.5rem',
+                      color: userData?.favorites?.includes(selectedGame.id) ? '#ef4444' : 'white'
+                    }}
+                    title="Add to favorites"
+                  >
+                    <Heart size={14} fill={userData?.favorites?.includes(selectedGame.id) ? '#ef4444' : 'none'} />
+                    {userData?.favorites?.includes(selectedGame.id) ? 'Favorited' : 'Add to favorites'}
                   </button>
                   <button 
                     onClick={() => setShowCloakModal(true)}

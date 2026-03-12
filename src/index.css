@@ -162,22 +162,50 @@ body {
   margin-bottom: 3rem;
   position: relative;
   overflow: hidden;
-  border-radius: 1.5rem;
-  background: linear-gradient(to bottom right, #059669, #0f766e);
+  border-radius: 2rem;
+  background: linear-gradient(135deg, #065f46 0%, #064e3b 100%);
   padding: 2rem;
-  box-shadow: 0 25px 50px -12px rgba(16, 185, 129, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
 @media (min-width: 768px) {
   .hero-section {
-    padding: 3rem;
+    padding: 4rem;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
   }
 }
 
 .hero-content {
   position: relative;
   z-index: 10;
-  max-width: 42rem;
+  max-width: 32rem;
+}
+
+.hero-visual {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.hero-visual img {
+  width: 100%;
+  max-width: 400px;
+  border-radius: 1.5rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+  transform: rotate(-2deg);
+  transition: transform 0.3s ease;
+}
+
+.hero-section:hover .hero-visual img {
+  transform: rotate(0deg) scale(1.05);
 }
 
 .hero-label {
@@ -281,6 +309,32 @@ body {
   transform: translateY(-8px);
   border-color: rgba(16, 185, 129, 0.4);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.sound-button-card {
+  border: 2px solid rgba(16, 185, 129, 0.4);
+  box-shadow: 0 8px 0 rgba(16, 185, 129, 0.8), 0 15px 20px rgba(0, 0, 0, 0.4);
+  transform: translateY(-8px);
+  transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sound-button-card:hover {
+  transform: translateY(0px) !important;
+  box-shadow: 0 0px 0 rgba(16, 185, 129, 0.8), 0 5px 10px rgba(0, 0, 0, 0.4) !important;
+  border-color: rgba(16, 185, 129, 0.8) !important;
+}
+
+.sound-button-card:active {
+  transform: translateY(2px) !important;
+  box-shadow: 0 0px 0 rgba(16, 185, 129, 0.8), 0 2px 5px rgba(0, 0, 0, 0.4) !important;
+}
+
+.sound-button-card:hover .card-thumbnail {
+  transform: scale(1) !important;
+}
+
+.sound-button-card:hover .card-overlay {
+  opacity: 0 !important;
 }
 
 .card-thumbnail-wrapper {
